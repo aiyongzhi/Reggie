@@ -16,4 +16,13 @@ public class DishDTO extends Dish {
 
     //菜品的份数
     private Integer copies;
+
+    @Override
+    public String toString() {
+        return "DishDTO{" +
+                "flavors=" + flavors +
+                ", categoryName='" + categoryName + '\'' +
+                ", copies=" + copies +
+                '}';
+    }
 }

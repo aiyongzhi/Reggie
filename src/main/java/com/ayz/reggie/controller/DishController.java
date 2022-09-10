@@ -13,7 +13,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,6 +35,15 @@ public class DishController {
     DishFlavorService dishFlavorService;
     @Autowired
     CategoryService categoryService;
+
+    @Autowired
+            @Qualifier("customStringRedisTemplate")
+    StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+            @Qualifier("customRedisTemplate")
+    RedisTemplate<String, Object> redisTemplate;
+
     @RequestMapping(value = "/backend/page/food/addDish.do")
     @Transactional
     public R<String> addDish(@RequestBody DishDTO dishDTO){
@@ -125,21 +136,32 @@ public class DishController {
     * 根据菜品分类的id查询该分类下所有的菜品
     * */
     @RequestMapping(value = "/backend/page/food/queryDishsByCategoryId.do")
-    public R<List<DishDTO>> queryDishsByCategoryId(Long categoryId){
+    public R<List<Object>> queryDishsByCategoryId(Long categoryId){
         //base case
         if(categoryId==null){
             return R.error("根据菜品分类查询菜品失败!");
         }
-        LambdaQueryWrapper<Dish> queryWrapper=new LambdaQueryWrapper<>();
-        //查询条件为categoryId和status
-        //只需要查询出所有起售的商品
-        queryWrapper.eq(Dish::getCategoryId,categoryId).eq(Dish::getStatus,1);
-        List<Dish> dishList = dishService.list(queryWrapper);
-        List<DishDTO> dishDTOList=new ArrayList<>();
-        for (Dish dish : dishList) {
-            DishDTO dishDTO=new DishDTO();
-            BeanUtils.copyProperties(dish,dishDTO);
-            dishDTOList.add(dishDTO);
+        //先从redis中拿redis中没有再去mysql
+        List<Object> dishDTOList = redisTemplate.opsForList().range(String.valueOf(categoryId), 0, -1);
+        if(dishDTOList!=null) {
+            for (int i = 0; i < dishDTOList.size(); i++) {
+                Object o = dishDTOList.get(i);
+                DishDTO dishDTO = (DishDTO) o;
+                dishDTOList.set(i, dishDTO);
+            }
+        }else{
+            LambdaQueryWrapper<Dish> queryWrapper=new LambdaQueryWrapper<>();
+            //查询条件为categoryId和status
+            //只需要查询出所有起售的商品
+            queryWrapper.eq(Dish::getCategoryId,categoryId).eq(Dish::getStatus,1);
+            List<Dish> dishList = dishService.list(queryWrapper);
+            dishDTOList=new ArrayList<>();
+            for (Dish dish : dishList) {
+                DishDTO dishDTO=new DishDTO();
+                BeanUtils.copyProperties(dish,dishDTO);
+                dishDTOList.add(dishDTO);
+            }
+            redisTemplate.opsForList().rightPushAll(String.valueOf(categoryId),dishDTOList);
         }
         return R.success(dishDTOList);
     }

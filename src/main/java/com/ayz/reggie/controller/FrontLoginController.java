@@ -9,6 +9,8 @@ import com.ayz.reggie.utils.ValidateCodeUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpSession;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RestController
@@ -23,6 +26,9 @@ public class FrontLoginController {
     @Autowired
     UserService userService;
 
+    @Autowired
+            @Qualifier("customStringRedisTemplate")
+    StringRedisTemplate stringRedisTemplate;
     /*  发送验证码 */
     @RequestMapping(value = "/front/page/login/sendMsg.do")
     public R<String> sendMsg(@RequestBody User user, HttpSession session){
@@ -36,7 +42,9 @@ public class FrontLoginController {
         //2: 调用阿里云短信服务api发送短信
 //        SMSUtils.sendMessage("阿里云短信测试","SMS_154950909",phone,validateCode);
         //3: 需要将生成的验证码保存到session
-        session.setAttribute(phone,validateCode);
+        //但数据保存在session中是有问题的，因为验证码时效一般是5分钟
+        //而用户只要一退出页面session会被销毁，可能5还在分钟之内，但验证码丢失
+        stringRedisTemplate.opsForValue().set(phone,validateCode,300, TimeUnit.SECONDS);
         return R.success("验证码发送成功!");
     }
 
@@ -45,7 +53,7 @@ public class FrontLoginController {
         //1: 进行登录校验
         String phone=map.get("phone");
         String code=map.get("code");
-        String attribute =(String)session.getAttribute(phone);
+        String attribute =stringRedisTemplate.opsForValue().getAndDelete(phone);
         boolean success=attribute!=null && attribute.equals(code);//用户登录成功
         //2:判断用户是否为首次登录，如果是首次登录在user表中记录其信息
         if(success){
