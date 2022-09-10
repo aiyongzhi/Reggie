@@ -12,6 +12,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -65,7 +66,11 @@ public class FrontIndexController {
 
     //获取套餐分类对应的套餐
 
+
+
+
     @RequestMapping(value = "/front/page/index/getSetmealByCategoryId.do")
+    @Cacheable(value = "setmealList",key = "'categoryId:'+#categoryId")
     public R<List<Setmeal>> getSetmealByCategoryId(Long categoryId,int status){
         LambdaQueryWrapper<Setmeal> queryWrapper=new LambdaQueryWrapper<>();
         queryWrapper.eq(Setmeal::getCategoryId,categoryId).eq(Setmeal::getStatus,status);

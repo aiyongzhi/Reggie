@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,8 @@ import org.thymeleaf.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RestController
@@ -35,15 +39,12 @@ public class DishController {
     DishFlavorService dishFlavorService;
     @Autowired
     CategoryService categoryService;
-
-    @Autowired
-            @Qualifier("customStringRedisTemplate")
-    StringRedisTemplate stringRedisTemplate;
-
     @Autowired
             @Qualifier("customRedisTemplate")
     RedisTemplate<String, Object> redisTemplate;
-
+    @Autowired
+            @Qualifier("customStringRedisTemplate")
+    StringRedisTemplate stringRedisTemplate;
     @RequestMapping(value = "/backend/page/food/addDish.do")
     @Transactional
     public R<String> addDish(@RequestBody DishDTO dishDTO){
@@ -51,6 +52,16 @@ public class DishController {
             return R.error("添加菜品失败!");
         }
         dishService.save(dishDTO);
+
+        //新增菜品的时候，为了防止前端查看的时候，看不到新增的菜品
+        //要更新redis缓存
+        String key="categoryId:"+dishDTO.getCategoryId();
+        List<DishDTO> dishDTOList =(List<DishDTO>) redisTemplate.opsForValue().get(key);
+        if(dishDTOList!=null){
+            dishDTOList.add(dishDTO);
+            redisTemplate.opsForValue().set(key,dishDTOList,1, TimeUnit.HOURS);
+        }
+
         //mybatis-plus主键会有默认填充策略
         //主键的填充是在服务器端完成的，所以是先生成主键注入进对象，再将对象放进数据表中
         if(dishDTO.getFlavors()!=null){
@@ -115,6 +126,20 @@ public class DishController {
     @RequestMapping(value = "/backend/page/food/updateDish.do")
     @Transactional
     public R<String> updateDish(@RequestBody DishDTO dishDTO){
+        //为了避免后台修改菜品的数据时，前端因为直接查缓存而看不到
+        //所以直接从缓存当中去拿取数据
+        String key="categoryId:"+dishDTO.getCategoryId();
+        List<DishDTO> dishDTOList =(List<DishDTO>) redisTemplate.opsForValue().get(key);
+        if(dishDTOList!=null){
+            for(int i=0;i<dishDTOList.size();i++){
+                DishDTO dto=dishDTOList.get(i);
+                if(Objects.equals(dto.getId(), dishDTO.getId())){
+                    dishDTOList.set(i,dishDTO);
+                    break;
+                }
+            }
+            redisTemplate.opsForValue().set(key,dishDTOList,1,TimeUnit.HOURS);
+        }
         Dish dish=new Dish();
         BeanUtils.copyProperties(dishDTO,dish);
         //1: 根据id修改菜品表的数据信息
@@ -136,19 +161,16 @@ public class DishController {
     * 根据菜品分类的id查询该分类下所有的菜品
     * */
     @RequestMapping(value = "/backend/page/food/queryDishsByCategoryId.do")
-    public R<List<Object>> queryDishsByCategoryId(Long categoryId){
+    public R<List<DishDTO>> queryDishsByCategoryId(Long categoryId){
         //base case
         if(categoryId==null){
             return R.error("根据菜品分类查询菜品失败!");
         }
         //先从redis中拿redis中没有再去mysql
-        List<Object> dishDTOList = redisTemplate.opsForList().range(String.valueOf(categoryId), 0, -1);
+        String key="categoryId:"+categoryId;
+        List<DishDTO> dishDTOList=(List<DishDTO>) redisTemplate.opsForValue().get(key);
         if(dishDTOList!=null) {
-            for (int i = 0; i < dishDTOList.size(); i++) {
-                Object o = dishDTOList.get(i);
-                DishDTO dishDTO = (DishDTO) o;
-                dishDTOList.set(i, dishDTO);
-            }
+            return R.success(dishDTOList);
         }else{
             LambdaQueryWrapper<Dish> queryWrapper=new LambdaQueryWrapper<>();
             //查询条件为categoryId和status
@@ -161,10 +183,8 @@ public class DishController {
                 BeanUtils.copyProperties(dish,dishDTO);
                 dishDTOList.add(dishDTO);
             }
-            redisTemplate.opsForList().rightPushAll(String.valueOf(categoryId),dishDTOList);
+            redisTemplate.opsForValue().set(key,dishDTOList,1,TimeUnit.HOURS);
         }
         return R.success(dishDTOList);
     }
-
-
 }

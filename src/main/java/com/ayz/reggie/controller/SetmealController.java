@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,6 +31,7 @@ public class SetmealController {
     * 添加套餐
     * */
     @RequestMapping(value = "/backend/page/combo/addSetmeal.do")
+    @CacheEvict(value = "setmealList",key = "'categoryId:'+#setmealDTO.categoryId",condition = "#setmealDTO!=null")
     public R<String> addSetmeal(@RequestBody SetmealDTO setmealDTO){
         boolean b = setmealService.insertSetmealWithDishes(setmealDTO);
         if(b){
@@ -73,6 +75,7 @@ public class SetmealController {
 
     //根据ids删除套餐
     @DeleteMapping(value = "/backend/page/combo/deleteSetmealByIds.do")
+    @CacheEvict(value = "setmealList",allEntries = true)
     public R<String> deleteSetmealByIds(Long[] ids){
         List<String> messageList=new ArrayList<>();
         for (Long id : ids) {

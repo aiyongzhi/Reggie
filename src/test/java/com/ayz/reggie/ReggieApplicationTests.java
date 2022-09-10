@@ -25,11 +25,14 @@ class ReggieApplicationTests {
     RedisTemplate redisTemplate;
     @Test
     void contextLoads() {
-        //测试redis缓存，存储菜品分类下的所有菜品
-        List<DishDTO> dishDTOList= (List<DishDTO>) redisTemplate.opsForValue().get("categoryId:1397844263642378242");
-        for (DishDTO dishDTO : dishDTOList) {
-            System.out.println(dishDTO);
-        }
+//        //测试redis缓存，存储菜品分类下的所有菜品
+//        List<DishDTO> dishDTOList= (List<DishDTO>) redisTemplate.opsForValue().get("categoryId:1397844263642378242");
+//        for (DishDTO dishDTO : dishDTOList) {
+//            System.out.println(dishDTO);
+//        }
+        Long l= Long.valueOf(1);
+        Long l2= Long.valueOf(1);
+        System.out.println(l==l2);
     }
 
 }
