@@ -1,26 +1,62 @@
 
 spring:
-  datasource:
-      driver-class-name: com.mysql.cj.jdbc.Driver
-      url: jdbc:mysql://localhost:3306/reggie?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
-      username: root
-      password: 123456
-      type: com.alibaba.druid.pool.DruidDataSource
-    #Spring Boot 默认是不注入这些属性值的，需要自己绑定
-    #druid 数据源专有配置
-      initialSize: 5
-      minIdle: 5
-      maxActive: 20
-      maxWait: 60000
-      timeBetweenEvictionRunsMillis: 60000
-      minEvictableIdleTimeMillis: 300000
-      validationQuery: SELECT 1 FROM DUAL
-      testWhileIdle: true
-      testOnBorrow: false
-      testOnReturn: false
-      poolPreparedStatements: true
+  main:
+    allow-bean-definition-overriding: true # spring容器帮我们管理对象时，默认不允许注入datasource
+      # 配置主从复制数据库,主库和从库两套配置
+  shardingsphere:
+    datasource:
+      names: master,slave
+      master:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://localhost:3306/reggie?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+          username: root
+          password: 123456
+          type: com.alibaba.druid.pool.DruidDataSource
+          #Spring Boot 默认是不注入这些属性值的，需要自己绑定
+          #druid 数据源专有配置
+          initialSize: 5
+          minIdle: 5
+          maxActive: 20
+          maxWait: 60000
+          timeBetweenEvictionRunsMillis: 60000
+          minEvictableIdleTimeMillis: 300000
+          validationQuery: SELECT 1 FROM DUAL
+          testWhileIdle: true
+          testOnBorrow: false
+          testOnReturn: false
+          poolPreparedStatements: true
+      slave:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://192.168.233.141:3306/reggie?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+          username: root
+          password: Ai@15012706016
+          type: com.alibaba.druid.pool.DruidDataSource
+          #Spring Boot 默认是不注入这些属性值的，需要自己绑定
+          #druid 数据源专有配置
+          initialSize: 5
+          minIdle: 5
+          maxActive: 20
+          maxWait: 60000
+          timeBetweenEvictionRunsMillis: 60000
+          minEvictableIdleTimeMillis: 300000
+          validationQuery: SELECT 1 FROM DUAL
+          testWhileIdle: true
+          testOnBorrow: false
+          testOnReturn: false
+          poolPreparedStatements: true
+    masterslave: # 主从复制的配置
+      # 负载均衡的配置:配置为轮询
+      load-balance-algorithm-type: round_robin
+      # 最终暴露的数据源名称
+      name: datasource
+      # 从数据库名称列表，用','号隔开
+      slave-data-source-names: slave
+      props:
+        sql:
+          show: true # 开启在控制台显示sql，默认是false
+      master-data-source-name: master
   redis:
-    host: 192.168.233.140
+    host: 192.168.233.141
     port: 6379
     password: root@123456
     database: 0

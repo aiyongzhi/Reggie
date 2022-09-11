@@ -65,10 +65,6 @@ public class FrontIndexController {
     }
 
     //获取套餐分类对应的套餐
-
-
-
-
     @RequestMapping(value = "/front/page/index/getSetmealByCategoryId.do")
     @Cacheable(value = "setmealList",key = "'categoryId:'+#categoryId")
     public R<List<Setmeal>> getSetmealByCategoryId(Long categoryId,int status){
